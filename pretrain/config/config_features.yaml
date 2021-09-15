@@ -1,0 +1,9 @@
+stft:
+  n_fft: 255
+  win_length: 20 # 20ms
+  hop_length: 5 # 5ms
+lms:
+  hop_length: 5
+  n_mels: 128
+mfcc:
+  n_mfcc: 20

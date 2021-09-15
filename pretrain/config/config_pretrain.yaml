@@ -1,0 +1,33 @@
+outputdir: experiment/
+model: DEPA
+model_args: 
+  type: stft
+optimizer: Adam
+optimizer_args:
+  lr: 0.0004
+input: ../data/mdd_stft.hdf5
+scheduler: ReduceLROnPlateau
+scheduler_args:
+  mode: min
+  factor: 0.5
+  patience: 2
+  cooldown: 1
+  verbose: False
+  threshold: 0.0001
+scaler: StandardScaler
+scaler_args:
+  with_std: True
+  with_mean: True
+epoch_num: 20
+dataloader_args:
+  batch_size: 2048
+  num_workers: 8
+sample_args:
+  frame_length: 96
+  k: 5 
+save_interval: 5
+normalization: True
+normalization_args:
+  with_mean: True
+  with_std: True
+patience: 5
