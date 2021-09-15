@@ -31,3 +31,9 @@ normalization_args:
   with_mean: True
   with_std: True
 patience: 5
+criterion: MSELoss
+transform: True
+transform_args:
+  time_mask_param: 10
+  freq_mask_param: 20
+  p: 0.8

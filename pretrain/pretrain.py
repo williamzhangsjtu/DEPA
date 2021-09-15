@@ -1,4 +1,6 @@
+from sklearn.utils import axis0_safe_slice
 import torch
+import h5py
 import fire
 import os
 import numpy as np
@@ -6,6 +8,7 @@ from glob import glob
 from tqdm import tqdm
 import datetime
 from pprint import pformat
+import kaldi_io
 from sklearn.preprocessing import StandardScaler
 
 import utils
@@ -41,7 +44,7 @@ class Runner(object):
         inputs, targets = inputs.to(DEVICE), targets.to(DEVICE)
         return model(inputs), targets
 
-    def train(self, config, **kwargs):
+    def train(self, config, debug=False):
         config = utils.parse_config(config)
         outputdir = os.path.join(config['outputpath'], 
             "{}_{}".format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%m')))
@@ -50,12 +53,19 @@ class Runner(object):
         logger.info(f'Output directory is: {outputdir}')
         torch.save(config, os.path.join(outputdir, 'run_config.d'))
 
-        train, dev, test = utils.dataset_split(config['input'])
+        train, dev, test = utils.dataset_split(
+            config['input'], debug=debug, random_state=self.seed)
+
         logger.info('Conducting Normalization')
-        scaler, inputdim = utils.normalization(config['input'], train,
+        scaler, _ = utils.normalization(config['input'], train,
             config['normalization'], config['normalization_args'])
+
+        transform_fn = (lambda x: x) if config['transform'] else\
+            utils.get_transform(**config['transform_args'])
+
         train_dataloader = create_dataloader(
             config['input'], train, scaler=scaler,
+            transform_fn=transform_fn,
             dataloader_args=config['dataloader_args'],
             sample_args=config['sample_args'])
         dev_dataloader = create_dataloader(
@@ -109,10 +119,10 @@ class Runner(object):
             val_loss = evaluator.state.metrics['Loss']
             logger.info(f'Training Loss: {train_loss}')
             logger.info(f'Validation Loss: {val_loss}')
-            schedule.step(val_loss)
+            scheduler.step(val_loss)
         
         @trainer.on(Events.COMPLETED)
-        def test(engnie):
+        def test(engine):
             params = torch.load(
                 glob(os.path.join(outputdir, 'eval_best*.pt'))[0], map_location=DEVICE)
             model.load_state_dict(params)
@@ -135,7 +145,8 @@ class Runner(object):
             score_function=lambda engine: -engine.state.metrics['Loss'],
             trainer=trainer, patience=config['patience'])
         
-        # Model
+        # ModelCheckpoint only supports to store object that has state_dict
+        # file name is: {prefix}_{name}_{score_name}={score}.pt
         trainer.add_event_handler(
             Events.EPOCH_COMPLETED(every=config['saving_interval']), 
             PeriodModelCheckpoint, {'model': model})
@@ -167,7 +178,7 @@ class Runner(object):
                         scaler.partial_fit(input[key][str(i)][()])
 
         with h5py.File(input, 'r') as input,\
-                h5py.File(output, 'w') as output,\
+                open(output, 'wb') as output,\
                 torch.no_grad():
             for key in tqdm(input.keys()):
                 feats = []
@@ -179,7 +190,9 @@ class Runner(object):
                         feat).unsqueeze(0).to(DEVICE)
                     out = model.extract_embedding(feat)
                     feats.append(feat.squeeze(0).cpu())
-                output[key] = np.concatenate(feat, axis=0)
+                # output[key] = np.concatenate(feat, axis=0)
+                kaldi_io.write_mat(
+                    output, np.concatenate(feat, axis=0), key=key)
             
 
 

@@ -1,4 +1,4 @@
 pretrain/audio
-**/.hdf5
-**/.h5
+**/*.hdf5
+**/*.h5
 **/__pycache__

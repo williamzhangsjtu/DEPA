@@ -1,10 +1,11 @@
 from torch.utils.data import DataLoader, Dataset
+import torch
 import h5py
 import numpy as np
 
 
 class RandomDataset(Dataset):
-    def __init__(self, input, scaler=None, process_fn=lambda x: x, indices=None, k=5, chunk_size=96):
+    def __init__(self, input, scaler=None, transform_fn=lambda x: x, indices=None, k=5, chunk_size=96):
         self.input, self.indices, self.data = input, indices, None
         n_samples, sample_size = 0, (2 * k + 1) * chunk_size
         with h5py.File(input, 'r') as input:
@@ -14,7 +15,7 @@ class RandomDataset(Dataset):
                 n_samples += len(input[idx]) // sample_size
         
         self.n_samples, self.k, self.chunk_size = n_samples, k, chunk_size
-        self.process_fn = process_fn
+        self.transform_fn = transform_fn
         self.scaler = scaler
             
     def __getitem__(self, index):
@@ -22,7 +23,7 @@ class RandomDataset(Dataset):
             self.data = h5py.File('self.input', 'r')
 
         k, chunk_size, sample_size = self.k,\
-            self.chunk_size, len(self.data[index]) - sample_size
+            self.chunk_size, (2 * self.k + 1) * self.chunk_size
         index = self.indices[np.random.randint(len(self.indices))]
         end_pos = len(self.data[index]) - sample_size
         if end_pos < 0:
@@ -37,9 +38,9 @@ class RandomDataset(Dataset):
         sample = sample.reshape(k * 2 + 1, chunk_size, -1)
         targets, feats = sample[k], np.concatenate(
             [sample[:k,:,:], sample[k+1:,:,:]], axis=0).reshape(2 * k * chunk_size, -1)
-        feats = self.process_fn(feats)
+        feats, targets = torch.from_numpy(feats), torch.from_numpy(targets)
 
-        return torch.from_numpy(feats), torch.from_numpy(targets)
+        return self.transform_fn(feats), targets
 
     def __len__(self):
         return self.n_samples * 2
