@@ -40,12 +40,11 @@ class Encoder(nn.Module):
 
 class Decoder_stft(nn.Module):
 
-    def __init__(self, input_dim:int=256):          # outputsize = (80,128)
+    def __init__(self, input_dim:int=256):    
         super(Decoder_stft, self).__init__()
 
 
-        self.Linear1 = nn.Linear(input_dim, 64 * 6 * 32)
-        # project to (64 * 6 * 8) then reshape to (64, 6, 32)
+        self.Linear1 = nn.Linear(input_dim, 64 * 6 * 16)
 
         self.CNN_BLOCK = nn.ModuleList()
         init_channel = 64
@@ -59,13 +58,12 @@ class Decoder_stft(nn.Module):
                 self.CNN_BLOCK.append(nn.ReLU())
             init_channel //= shrink
         self.model = nn.Sequential(*self.CNN_BLOCK)
-        # from (4, 48, 256) to (1, 96, 512)
 
     def forward(self, x):
-        projection = self.Linear1(x)
-        reshape = projection.reshape(projection.shape[0], 64, 6, 32)
+        proj = self.Linear1(x)
+        inputs = proj.reshape(proj.shape[0], 64, 6, 16)
 
-        return self.model(reshape).squeeze(1)     #(B，96, 512)
+        return self.model(inputs).squeeze(1)     #(B，96, 256)
 
 class Decoder_mel(nn.Module):
 
