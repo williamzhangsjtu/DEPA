@@ -32,11 +32,13 @@ files = glob(os.path.join(args.path, '*.wav'))
 def get_transform_func(type='stft'):
     if type == 'stft':
         def stft_transform(raw_wav, **kwargs):
-            kwargs.get()
+            kwargs['win_length'] = kwargs.setdefault('win_length', 20) * sr // 1000
+            kwargs['hop_length'] = kwargs.setdefault('hop_length', 20) * sr // 1000
             return np.log(np.abs(librosa.stft(audio, **kwargs).T + 1e-12))
         return stft_transform
     elif type == 'lms':
         def lms_transform(raw_wav, **kwargs):
+            kwargs['hop_length'] = kwargs.setdefault('hop_length', 20) * sr // 1000
             return np.log(librosa.feature.melspectrogram(audio, **kwargs).T + 1e-12)
         return lms_transform
     else:
@@ -55,11 +57,9 @@ def read_wav(file):
 
 
 
-# with h5py.File(args.output, 'w') as output, tqdm(total=len(files)) as pbar:
-with tqdm(total=len(files)) as pbar:
+with h5py.File(args.output, 'w') as output, tqdm(total=len(files)) as pbar:
     for index, features in pr.map(read_wav, files, args.c, args.c*2):
         output[str(index)] = features
-        print(f"{index} has shape {features.shape}")
         pbar.update()
 
         
