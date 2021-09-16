@@ -33,12 +33,12 @@ def get_transform_func(type='stft'):
     if type == 'stft':
         def stft_transform(raw_wav, **kwargs):
             kwargs['win_length'] = kwargs.setdefault('win_length', 20) * sr // 1000
-            kwargs['hop_length'] = kwargs.setdefault('hop_length', 20) * sr // 1000
+            kwargs['hop_length'] = kwargs.setdefault('hop_length', 5) * sr // 1000
             return np.log(np.abs(librosa.stft(raw_wav, **kwargs).T + 1e-12))
         return stft_transform
     elif type == 'lms':
         def lms_transform(raw_wav, **kwargs):
-            kwargs['hop_length'] = kwargs.setdefault('hop_length', 20) * sr // 1000
+            kwargs['hop_length'] = kwargs.setdefault('hop_length', 5) * sr // 1000
             return np.log(librosa.feature.melspectrogram(raw_wav, **kwargs).T + 1e-12)
         return lms_transform
     else:

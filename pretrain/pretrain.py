@@ -46,8 +46,8 @@ class Runner(object):
 
     def train(self, config, debug=False):
         config = utils.parse_config(config)
-        outputdir = os.path.join(config['outputpath'], 
-            "{}_{}".format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%m')))
+        outputdir = os.path.join(config['outputdir'], 
+                "{}".format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%m')))
         os.makedirs(outputdir, exist_ok=True)
         logger = utils.genlogger(os.path.join(outputdir, 'logging.txt'))
         logger.info(f'Output directory is: {outputdir}')
@@ -58,7 +58,7 @@ class Runner(object):
 
         logger.info('Conducting Normalization')
         scaler, _ = utils.normalization(config['input'], train,
-            config['normalization'], config['normalization_args'])
+            config['normalization'], **config['normalization_args'])
 
         transform_fn = (lambda x: x) if config['transform'] else\
             utils.get_transform(**config['transform_args'])
@@ -80,7 +80,7 @@ class Runner(object):
         model = getattr(models, config['model'])(
             **config['model_args'])
         model = model.to(device)
-        for line in pformat(model):
+        for line in pformat(model).split('\n'):
             logger.info(line)
         criterion = getattr(losses, config['criterion'])(
             **config['criterion_args'])
@@ -97,7 +97,7 @@ class Runner(object):
                 loss = criterion(output, targets)
                 loss.backward()
                 optimizer.step()
-            return loss.item().cpu()
+            return loss.item()
 
         def _inference(_, batch):
             model.eval()
@@ -160,7 +160,7 @@ class Runner(object):
         return outputdir
 
     @staticmethod
-    def encoding(model_path, input, output):
+    def encoding(model_path, input_file, output_file):
         params = torch.load(
             glob(os.path.join(model_path, 'eval_best*.pt'))[0], map_location='cpu')
         config = torch.load(
@@ -171,16 +171,16 @@ class Runner(object):
         
         scaler = None
         if config['normalization']:
-            scaler = StandardScaler(config['normalization_args'])
-            with h5py.File(input, 'r') as input:
-                for key in tqdm(input.keys()):
+            scaler = StandardScaler(**config['normalization_args'])
+            with h5py.File(input_file, 'r') as input:
+                for key in tqdm(input.keys(), desc="Calculating mean, std: "):
                     for i in range(len(input[key])):
                         scaler.partial_fit(input[key][str(i)][()])
 
-        with h5py.File(input, 'r') as input,\
-                open(output, 'wb') as output,\
+        with h5py.File(input_file, 'r') as input,\
+                open(output_file, 'wb') as output,\
                 torch.no_grad():
-            for key in tqdm(input.keys()):
+            for key in tqdm(input.keys(), desc="Extracting Progress: "):
                 feats = []
                 for i in range(len(input[key])):
                     feat = input[key][str(i)][()]
@@ -189,10 +189,10 @@ class Runner(object):
                     feat = torch.from_numpy(
                         feat).unsqueeze(0).to(DEVICE)
                     out = model.extract_embedding(feat)
-                    feats.append(feat.squeeze(0).cpu())
+                    feats.append(out.squeeze(0).cpu())
                 # output[key] = np.concatenate(feat, axis=0)
                 kaldi_io.write_mat(
-                    output, np.concatenate(feat, axis=0), key=key)
+                    output, np.concatenate(feats, axis=0), key=key)
             
 
 

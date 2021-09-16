@@ -20,18 +20,20 @@ class RandomDataset(Dataset):
             
     def __getitem__(self, index):
         if self.data is None:
-            self.data = h5py.File('self.input', 'r')
+            self.data = h5py.File(self.input, 'r')
 
         k, chunk_size, sample_size = self.k,\
             self.chunk_size, (2 * self.k + 1) * self.chunk_size
-        index = self.indices[np.random.randint(len(self.indices))]
+        index = self.indices[torch.randint(0, len(self.indices), (1, ))[0]]
         end_pos = len(self.data[index]) - sample_size
         if end_pos < 0:
             sample = self.data[index][()]
+            tmp = np.zeros((sample_size, sample.shape[-1]))
+            tmp[:len(sample), :] = sample
+            sample = tmp
         else:
-            init_pos = np.random.randint(end_pos)
+            init_pos = torch.randint(0, end_pos, (1, ))[0]
             sample = self.data[index][init_pos: init_pos + sample_size]
-        
         sample = sample if self.scaler is not None\
             else self.scaler.transform(sample)
         
@@ -40,7 +42,7 @@ class RandomDataset(Dataset):
             [sample[:k,:,:], sample[k+1:,:,:]], axis=0).reshape(2 * k * chunk_size, -1)
         feats, targets = torch.from_numpy(feats), torch.from_numpy(targets)
 
-        return self.transform_fn(feats), targets
+        return self.transform_fn(feats).to(torch.float), targets.to(torch.float)
 
     def __len__(self):
         return self.n_samples * 2

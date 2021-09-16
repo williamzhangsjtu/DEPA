@@ -1,6 +1,6 @@
 import yaml
 import sys
-import logging
+from loguru import logger
 import h5py
 import numpy as np
 from torchaudio.transforms import TimeMasking, FrequencyMasking
@@ -14,25 +14,18 @@ def parse_config(config_file, **kwargs):
         yaml_config = yaml.load(con_read, Loader=yaml.FullLoader)
     return yaml_config
 
-def genlogger(outputfile):
-    formatter = logging.Formatter(
-        "[ %(levelname)s : %(asctime)s ] - %(message)s")
-    logger = logging.getLogger(__name__ + "." + outputfile)
-    logger.setLevel(logging.INFO)
-    stdlog = logging.StreamHandler(sys.stdout)
-    stdlog.setFormatter(formatter)
-    file_handler = logging.FileHandler(outputfile)
-    file_handler.setFormatter(formatter)
-    # Log to stdout
-    logger.addHandler(file_handler)
-    logger.addHandler(stdlog)
+def genlogger(file):
+    log_format = "[<green>{time:YYYY-MM-DD HH:mm:ss}</green>] {message}"
+    logger.configure(handlers=[{"sink": sys.stderr, "format": log_format}])
+    if file:
+        logger.add(file, enqueue=True, format=log_format)
     return logger
 
 def dataset_split(input, debug=False, random_state=0):
     with h5py.File(input, 'r') as input:
-        indices = input.keys()
+        indices = list(input.keys())
     if debug:
-        indices = indices[: int(0.1 * len(indices))]
+        indices = indices[: int(0.02 * len(indices))]
     train, test = train_test_split(indices,
         test_size=0.1, random_state=random_state)
     train, dev = train_test_split(train,

@@ -1,3 +1,3 @@
 import torch.nn as nn
 
-MSELoss = nn.MSELoss()
+MSELoss = nn.MSELoss
