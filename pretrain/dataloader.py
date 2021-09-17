@@ -34,6 +34,7 @@ class RandomDataset(Dataset):
         else:
             init_pos = torch.randint(0, end_pos, (1, ))[0]
             sample = self.data[index][init_pos: init_pos + sample_size]
+
         sample = sample if self.scaler is not None\
             else self.scaler.transform(sample)
         
@@ -45,7 +46,7 @@ class RandomDataset(Dataset):
         return self.transform_fn(feats).to(torch.float), targets.to(torch.float)
 
     def __len__(self):
-        return self.n_samples * 2
+        return self.n_samples * 3
 
 
 def create_dataloader(input, indices=None, is_random=True, scaler=None, **kwargs):
@@ -54,6 +55,7 @@ def create_dataloader(input, indices=None, is_random=True, scaler=None, **kwargs
     kwargs.setdefault('sample_args', {'k': 5, 'chunk_size': 96})
 
     if is_random:
-        _dataset = RandomDataset(input, indices=indices, scaler=scaler, **kwargs['sample_args'])
+        _dataset = RandomDataset(input,
+            indices=indices,scaler=scaler, **kwargs['sample_args'])
 
     return DataLoader(_dataset, **kwargs['dataloader_args'])

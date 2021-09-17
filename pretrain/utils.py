@@ -1,4 +1,5 @@
 import yaml
+import torch
 import sys
 from loguru import logger
 import h5py
@@ -51,7 +52,7 @@ def get_transform(freq_mask_param=20, time_mask_param=10, p=0.8):
     time_mask_fn, freq_mask_fn = TimeMasking(time_mask_param),\
         FrequencyMasking(freq_mask_param)
     def transform_fn(spectrogram):
-        if np.random.rand(1)[0] < p:
+        if torch.rand(1).item() < p:
             return time_mask_fn(freq_mask_fn(spectrogram))
         return spectrogram
     return transform_fn

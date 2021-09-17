@@ -44,13 +44,15 @@ class Runner(object):
         inputs, targets = inputs.to(DEVICE), targets.to(DEVICE)
         return model(inputs), targets
 
-    def train(self, config, debug=False):
+    def train(self, config='config/config_pretrain.yaml', debug=False):
         config = utils.parse_config(config)
         outputdir = os.path.join(config['outputdir'], 
                 "{}".format(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%m')))
         os.makedirs(outputdir, exist_ok=True)
         logger = utils.genlogger(os.path.join(outputdir, 'logging.txt'))
         logger.info(f'Output directory is: {outputdir}')
+        for k, v in config.items():
+            logger.info(f'{k}: {v}')
         torch.save(config, os.path.join(outputdir, 'run_config.d'))
 
         train, dev, test = utils.dataset_split(
@@ -117,8 +119,8 @@ class Runner(object):
             evaluator.run(dev_dataloader)
             train_loss = engine.state.metrics['Loss']
             val_loss = evaluator.state.metrics['Loss']
-            logger.info(f'Training Loss: {train_loss}')
-            logger.info(f'Validation Loss: {val_loss}')
+            logger.info('Training Loss: {:<5.2f}'.format(train_loss))
+            logger.info('Validation Loss: {:<5.2f}'.format(val_loss))
             scheduler.step(val_loss)
         
         @trainer.on(Events.COMPLETED)
@@ -128,7 +130,7 @@ class Runner(object):
             model.load_state_dict(params)
             testor.run(test_dataloader)
             test_loss = testor.state.metrics['Loss']
-            logger.info(f'Test Loss: {test_loss}')
+            logger.info('Test Loss: {:<5.2f}'.format(test_loss))
 
         
         BestModelCheckpoint = ModelCheckpoint(
@@ -189,12 +191,14 @@ class Runner(object):
                     feat = torch.from_numpy(
                         feat).unsqueeze(0).to(DEVICE)
                     out = model.extract_embedding(feat)
-                    feats.append(out.squeeze(0).cpu())
+                    feats.append(out.squeeze(0).cpu().numpy())
                 # output[key] = np.concatenate(feat, axis=0)
-                kaldi_io.write_mat(
-                    output, np.concatenate(feats, axis=0), key=key)
+                kaldi_io.write_mat(output, np.array(feats), key=key)
             
-
+    def pipeline(self, config, input_file, output_file):
+        outputdir = self.train(config, debug=False)
+        Runner.encoding(outputdir,
+            input_file, os.path.join(outputdir, output_file))
 
 
 if __name__ == '__main__':

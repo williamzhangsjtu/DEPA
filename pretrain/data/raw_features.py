@@ -7,7 +7,6 @@ import numpy as np
 from glob import glob
 import os
 import yaml
-import time
 
 parser = argparse.ArgumentParser()
 

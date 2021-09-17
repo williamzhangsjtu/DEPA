@@ -5,7 +5,7 @@ model_args:
 optimizer: Adam
 optimizer_args:
   lr: 0.0004
-input: data/mdd_stft.hdf5
+input: data/mdd_stft_win=20_d=256.hdf5
 scheduler: ReduceLROnPlateau
 scheduler_args:
   mode: min
@@ -18,23 +18,23 @@ scaler: StandardScaler
 scaler_args:
   with_std: True
   with_mean: True
-n_epochs: 15
+n_epochs: 10
 dataloader_args:
   batch_size: 1024
   num_workers: 8
 sample_args:
   chunk_size: 96
-  k: 3
+  k: 7
 normalization: True
 normalization_args:
   with_mean: True
   with_std: True
-patience: 10
+patience: 5
 criterion: MSELoss
 criterion_args: {}
 transform: True
 transform_args:
-  time_mask_param: 10
-  freq_mask_param: 20
+  time_mask_param: 15
+  freq_mask_param: 30
   p: 0.8
 saving_interval: 5
