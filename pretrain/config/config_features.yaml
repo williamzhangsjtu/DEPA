@@ -1,5 +1,5 @@
 stft:
-  n_fft: 511
+  n_fft: 1023
   win_length: 20 # 20ms
   hop_length: 5 # 5ms
 lms:

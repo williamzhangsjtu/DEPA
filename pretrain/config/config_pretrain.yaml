@@ -1,11 +1,11 @@
-outputdir: experiment/
+outputdir: experiment/SWB/STFT/old
 model: DEPA
 model_args: 
   type: stft
 optimizer: Adam
 optimizer_args:
-  lr: 0.0004
-input: data/mdd_stft_win=20_d=256.hdf5
+  lr: 0.0006
+input: data/swb_stft_win=20_d=512.hdf5
 scheduler: ReduceLROnPlateau
 scheduler_args:
   mode: min
@@ -18,23 +18,24 @@ scaler: StandardScaler
 scaler_args:
   with_std: True
   with_mean: True
-n_epochs: 10
+n_epochs: 50
 dataloader_args:
   batch_size: 1024
-  num_workers: 8
+  num_workers: 4
 sample_args:
   chunk_size: 96
-  k: 7
-normalization: True
+  k: 3
+  alpha: 1.1
+normalization: False
 normalization_args:
   with_mean: True
   with_std: True
-patience: 5
+patience: 50
 criterion: MSELoss
 criterion_args: {}
-transform: True
+transform: False
 transform_args:
-  time_mask_param: 15
-  freq_mask_param: 30
+  time_mask_param: 10
+  freq_mask_param: 20
   p: 0.8
 saving_interval: 5

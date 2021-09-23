@@ -19,7 +19,7 @@ parser.add_argument('-o', '--output', type=str, default='stft.hdf5', help='outpu
 
 args = parser.parse_args()
 
-def parse_config(config_file, **kwargs):
+def parse_config(config_file):
     with open(config_file) as con_read:
         yaml_config = yaml.load(con_read, Loader=yaml.FullLoader)
     return yaml_config
@@ -33,7 +33,7 @@ def get_transform_func(type='stft'):
         def stft_transform(raw_wav, **kwargs):
             kwargs['win_length'] = kwargs.setdefault('win_length', 20) * sr // 1000
             kwargs['hop_length'] = kwargs.setdefault('hop_length', 5) * sr // 1000
-            return np.log(np.abs(librosa.stft(raw_wav, **kwargs).T + 1e-12))
+            return np.log(np.abs(librosa.stft(raw_wav, **kwargs)).T + 1e-12)
         return stft_transform
     elif type == 'lms':
         def lms_transform(raw_wav, **kwargs):
@@ -51,7 +51,7 @@ if args.type != 'stft':
     audio_config['sr'] = sr
 
 def read_wav(file):
-    audio, _ = librosa.load(file, sr=sr, duration=5400)
+    audio, _ = librosa.load(file, sr=sr, duration=3600)
     index = os.path.split(file)[-1].split('.')[0]
     features = transform_fn(audio, **audio_config)
     return index, features

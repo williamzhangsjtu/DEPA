@@ -1,4 +1,3 @@
-from sklearn.utils import axis0_safe_slice
 import torch
 import h5py
 import fire
@@ -58,11 +57,12 @@ class Runner(object):
         train, dev, test = utils.dataset_split(
             config['input'], debug=debug, random_state=self.seed)
 
-        logger.info('Conducting Normalization')
+        if config['normalization']:
+            logger.info('Conducting Normalization')
         scaler, _ = utils.normalization(config['input'], train,
             config['normalization'], **config['normalization_args'])
 
-        transform_fn = (lambda x: x) if config['transform'] else\
+        transform_fn = (lambda x: x) if not config['transform'] else\
             utils.get_transform(**config['transform_args'])
 
         train_dataloader = create_dataloader(
@@ -111,7 +111,10 @@ class Runner(object):
         RunningAverage(output_transform=lambda x: x).attach(trainer, 'Loss')
         Loss(criterion).attach(evaluator, 'Loss')
         Loss(criterion).attach(testor, 'Loss')
-        ProgressBar(persist=False, ncols=75).attach(trainer, output_transform=lambda x: {'loss': x})
+        ProgressBar(persist=False, ncols=75).attach(
+            trainer, output_transform=lambda x: {'loss': x})
+        ProgressBar(persist=False, ncols=75, desc='Evaluating').attach(
+            evaluator, output_transform=None)
 
         @trainer.on(Events.EPOCH_COMPLETED)
         def evaluate(engine):
@@ -162,7 +165,7 @@ class Runner(object):
         return outputdir
 
     @staticmethod
-    def encoding(model_path, input_file, output_file):
+    def encoding(model_path, input_file, output_file, **kwargs):
         params = torch.load(
             glob(os.path.join(model_path, 'eval_best*.pt'))[0], map_location='cpu')
         config = torch.load(
@@ -179,6 +182,8 @@ class Runner(object):
                     for i in range(len(input[key])):
                         scaler.partial_fit(input[key][str(i)][()])
 
+        chunk_size = kwargs.get('chunk_size')
+
         with h5py.File(input_file, 'r') as input,\
                 open(output_file, 'wb') as output,\
                 torch.no_grad():
@@ -188,17 +193,21 @@ class Runner(object):
                     feat = input[key][str(i)][()]
                     if scaler is not None:
                         feat = scaler.transform(feat)
-                    feat = torch.from_numpy(
-                        feat).unsqueeze(0).to(DEVICE)
+                    feat = torch.from_numpy(feat).to(DEVICE)
+                    if chunk_size:
+                        n_chunk = len(feat) // chunk_size
+                        feat = feat[:n_chunk * chunk_size].reshape(
+                            n_chunk, chunk_size, -1)
+                    else:
+                        feat = feat.unsqueeze(0)
                     out = model.extract_embedding(feat)
-                    feats.append(out.squeeze(0).cpu().numpy())
-                # output[key] = np.concatenate(feat, axis=0)
+                    feats.extend(out.cpu().numpy())
                 kaldi_io.write_mat(output, np.array(feats), key=key)
             
-    def pipeline(self, config, input_file, output_file):
+    def pipeline(self, config, input_file, output_file, **kwargs):
         outputdir = self.train(config, debug=False)
         Runner.encoding(outputdir,
-            input_file, os.path.join(outputdir, output_file))
+            input_file, os.path.join(outputdir, output_file, **kwargs))
 
 
 if __name__ == '__main__':
