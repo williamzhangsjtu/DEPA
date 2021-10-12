@@ -50,8 +50,8 @@ class RandomDataset(Dataset):
 
 class DEPADataset(Dataset):
     def __init__(self, input, indices=None, scaler=None, transform_fn=lambda x: x, **kwargs):
-        chunk_size, k, alpha = kwargs.get('chunk_size', 96),\
-            kwargs.get('k', 5), kwargs.get('alpha', 1.2)
+        chunk_size, k, alpha, pattern = kwargs.get('chunk_size', 96),\
+            kwargs.get('k', 5), kwargs.get('alpha', 1.2), kwargs.get('pattern', 'center')
 
         self.input, self.indices, self.data = input, indices, None
         sample_size = int((2 * k + 1) * chunk_size * alpha)
@@ -68,7 +68,8 @@ class DEPADataset(Dataset):
                 init += n_samples
                 self.audio_id += [str(index)] * n_samples
         
-        self.sample_size, self.k, self.chunk_size = sample_size, k, chunk_size
+        self.sample_size, self.k, self.chunk_size,\
+            self.pattern = sample_size, k, chunk_size, pattern
         self.transform_fn = transform_fn
         self.scaler = scaler
     
@@ -83,10 +84,15 @@ class DEPADataset(Dataset):
 
         sample = sample if self.scaler is None\
             else self.scaler.transform(sample)
-        
         sample = sample[:(2 * k + 1) * chunk_size].reshape(k * 2 + 1, chunk_size, -1)
-        targets, feats = sample[k], np.concatenate(
-            [sample[:k,:,:], sample[k+1:,:,:]], axis=0).reshape(2 * k * chunk_size, -1)
+        if self.pattern == 'center':
+            targets, feats = sample[k], np.concatenate(
+                [sample[:k,:,:], sample[k+1:,:,:]], axis=0).reshape(2 * k * chunk_size, -1)
+        elif self.pattern == 'forward':
+            targets, feats = sample[-1], sample[:-1].reshape(2 * k * chunk_size, -1)
+        else:
+            targets, feats = sample[0], sample[1:].reshape(2 * k * chunk_size, -1)
+
         feats, targets = torch.from_numpy(feats), torch.from_numpy(targets)
         
         return self.transform_fn(feats).to(torch.float), targets.to(torch.float)

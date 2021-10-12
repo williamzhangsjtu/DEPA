@@ -31,13 +31,13 @@ files = glob(os.path.join(args.path, '*.wav'))
 def get_transform_func(type='stft'):
     if type == 'stft':
         def stft_transform(raw_wav, **kwargs):
-            kwargs['win_length'] = kwargs.setdefault('win_length', 20) * sr // 1000
-            kwargs['hop_length'] = kwargs.setdefault('hop_length', 5) * sr // 1000
+            kwargs['win_length'] = (kwargs.get('win_length', 20) * sr) // 1000
+            kwargs['hop_length'] = (kwargs.get('hop_length', 5) * sr) // 1000
             return np.log(np.abs(librosa.stft(raw_wav, **kwargs)).T + 1e-12)
         return stft_transform
     elif type == 'lms':
         def lms_transform(raw_wav, **kwargs):
-            kwargs['hop_length'] = kwargs.setdefault('hop_length', 5) * sr // 1000
+            kwargs['hop_length'] = kwargs.get('hop_length', 5) * sr // 1000
             return np.log(librosa.feature.melspectrogram(raw_wav, **kwargs).T + 1e-12)
         return lms_transform
     else:
@@ -51,7 +51,7 @@ if args.type != 'stft':
     audio_config['sr'] = sr
 
 def read_wav(file):
-    audio, _ = librosa.load(file, sr=sr, duration=3600)
+    audio, _ = librosa.load(file, sr=sr, duration=7200)
     index = os.path.split(file)[-1].split('.')[0]
     features = transform_fn(audio, **audio_config)
     return index, features

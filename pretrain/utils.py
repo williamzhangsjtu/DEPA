@@ -30,9 +30,9 @@ def dataset_split(input, debug=False, random_state=0):
     if debug:
         indices = indices[: int(0.01 * len(indices))]
     train, test = train_test_split(indices,
-        test_size=0.1, random_state=random_state)
+        test_size=0.01, random_state=random_state)
     train, dev = train_test_split(train,
-        test_size=0.1, random_state=random_state)
+       test_size=0.01, random_state=random_state)
     
     return train, dev, test
 

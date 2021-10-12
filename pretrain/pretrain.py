@@ -124,12 +124,12 @@ class Runner(object):
             val_loss = evaluator.state.metrics['Loss']
             logger.info('Training Loss: {:<5.2f}'.format(train_loss))
             logger.info('Validation Loss: {:<5.2f}'.format(val_loss))
-            scheduler.step(val_loss)
+            scheduler.step(train_loss)
         
         @trainer.on(Events.COMPLETED)
         def test(engine):
             params = torch.load(
-                glob(os.path.join(outputdir, 'eval_best*.pt'))[0], map_location=DEVICE)
+                glob(os.path.join(outputdir, 'train_best*.pt'))[0], map_location=DEVICE)
             model.load_state_dict(params)
             testor.run(test_dataloader)
             test_loss = testor.state.metrics['Loss']
@@ -137,7 +137,7 @@ class Runner(object):
 
         
         BestModelCheckpoint = ModelCheckpoint(
-            outputdir, filename_prefix='eval_best',
+            outputdir, filename_prefix='train_best',
             score_function=lambda engine: -engine.state.metrics['Loss'],
             score_name='Loss', n_saved=1,
             global_step_transform=global_step_from_engine(trainer))
@@ -155,7 +155,7 @@ class Runner(object):
         trainer.add_event_handler(
             Events.EPOCH_COMPLETED(every=config['saving_interval']), 
             PeriodModelCheckpoint, {'model': model})
-        evaluator.add_event_handler(
+        trainer.add_event_handler(
             Events.EPOCH_COMPLETED, BestModelCheckpoint, {'model': model})
         evaluator.add_event_handler(
             Events.EPOCH_COMPLETED, EarlyStoppingHandler)
@@ -167,7 +167,8 @@ class Runner(object):
     @staticmethod
     def encoding(model_path, input_file, output_file, **kwargs):
         params = torch.load(
-            glob(os.path.join(model_path, 'eval_best*.pt'))[0], map_location='cpu')
+            # glob(os.path.join(model_path, 'train_period_model_110*.pt'))[0], map_location='cpu')
+            glob(os.path.join(model_path, 'train_best*.pt'))[0], map_location='cpu')
         config = torch.load(
             glob(os.path.join(model_path, 'run_config.d'))[0])
         model = getattr(models, config['model'])(**config['model_args'])
@@ -183,6 +184,7 @@ class Runner(object):
                         scaler.partial_fit(input[key][str(i)][()])
 
         chunk_size = kwargs.get('chunk_size')
+        # chunk_size = 200
 
         with h5py.File(input_file, 'r') as input,\
                 open(output_file, 'wb') as output,\
@@ -193,10 +195,13 @@ class Runner(object):
                     feat = input[key][str(i)][()]
                     if scaler is not None:
                         feat = scaler.transform(feat)
-                    feat = torch.from_numpy(feat).to(DEVICE)
+                    feat = torch.from_numpy(feat).to(DEVICE, torch.float)
                     if chunk_size:
-                        n_chunk = len(feat) // chunk_size
-                        feat = feat[:n_chunk * chunk_size].reshape(
+                        n_chunk = len(feat) // chunk_size + 1
+                        tmp = torch.zeros(n_chunk * chunk_size, feat.shape[-1]).to(feat.device)
+                        tmp[:len(feat),:] = feat
+                        feat = tmp
+                        feat = feat[:n_chunk * chunk_size].view(
                             n_chunk, chunk_size, -1)
                     else:
                         feat = feat.unsqueeze(0)
